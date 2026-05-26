@@ -16,3 +16,6 @@ uv add --dev pytest httpx ruff
 Se crea también un archivo `.env.example` con las variables de entorno a configurar en donde sea que vaya a funcionar esa aplicación; y una clase `Settings` que las lee.
 
 ## Configuración de Machine Learning
+
+Se migra el preprocesamiento del dataset a funciones en `ml/preprocessing`, refactorizando segun corresponde para seguir las buenas prácticas.
+- Función `resolve_label_conflicts`: Se refactoriza para evitar iterar por cada `obj_ID` y filtros repetidos sobre el DataFrame.
