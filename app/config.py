@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     model_stage: str
     data_dir: str = "./data"
     log_level: str = "INFO"
+    data_source_url: str
 
     class Config:
         env_file = ".env"
