@@ -2,8 +2,10 @@ model:
   name: "stellar-classifier"
   type: "RandomForestClassifier"
 
-hyperparamenters:
+# Features para el modelo
+features: ['alpha', 'delta', 'u', 'g', 'r', 'i', 'z', 'redshift']
 
+hyperparameters:
   n_estimators: 94
   max_depth: 21
   min_samples_split: 2
