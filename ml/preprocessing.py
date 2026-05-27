@@ -5,14 +5,15 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.model_selection import GroupShuffleSplit
 
-from app.config import settings
 from ml.features import (
     FEATURES,
     RANDOM_STATE,
     TEST_SIZE,
+    TARGET,
+    OUTLIER_SENTINEL,
 )
 
-def load_data(source: str=settings.data_source_url) -> pd.DataFrame:
+def load_data(source: str) -> pd.DataFrame:
     """Acepta URL o path local"""
     if not source:
         print("No data source specified, using default URL")
@@ -21,10 +22,16 @@ def load_data(source: str=settings.data_source_url) -> pd.DataFrame:
 
 def remove_outliers(df: pd.DataFrame) -> pd.DataFrame: 
     """Solo elimina outliers que son claro error, saturado a -9999."""
-    return df[(df['u'] != -9999) & (df['g'] != -9999) & (df['z'] != -9999)]
+    sentinel = OUTLIER_SENTINEL
+    return df[
+        (df['u'] != sentinel) &
+        (df['g'] != sentinel) &
+        (df['z'] != sentinel)
+    ]
 
 def resolve_label_conflicts(df: pd.DataFrame) -> pd.DataFrame:
-    """Mantiene la clase mayoritaria por `obj_ID`."""
+    """Para cada `obj_ID` con múltiples registros, conserva solo los de la clase
+    mayoritaria. En caso de empate, conserva la primera alfabéticamente."""
     counts = (
         df.groupby(['obj_ID', 'class']) # Agrupa el dataframe por `obj_ID` y `class`.
         .size() # Cuenta las filas por grupo. Produce una salida 'Series' con un MultiIndex de `obj_ID` y `class`, y el conteo como valores.
@@ -55,7 +62,7 @@ def split_dataset(
     test_size: float = TEST_SIZE,
     random_state: int = RANDOM_STATE
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
-    """Split del dataset teniendo en cuenta de no separar los `obj_ID` para evitar data leakage."""
+    """Split del dataset evitando separar los `obj_ID` para evitar data leakage."""
 
     groups = df["obj_ID"].to_numpy()
 
@@ -75,11 +82,8 @@ def split_dataset(
 
 def _get_relevant_features(df: pd.DataFrame, features: list = FEATURES) -> pd.DataFrame:
     """Filtra el DataFrame para quedarse solo con las columnas relevantes."""
-    return df[features]
+    return df[features].copy()
 
-def _get_target(df: pd.DataFrame, target_col: str = 'class') -> pd.Series:
+def _get_target(df: pd.DataFrame, target_col: str = TARGET) -> pd.Series:
     """Extrae la columna objetivo del DataFrame."""
-    return df[target_col]
-
-def build_pipeline(df: pd.DataFrame) -> Pipeline:
-    ...
+    return df[target_col].copy()
