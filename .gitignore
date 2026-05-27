@@ -9,3 +9,13 @@ wheels/
 # Virtual environments
 .venv
 .env
+
+# Dataset
+dataset/
+
+# MLflow local runs 
+mlruns/
+mlartifacts/
+
+# Artifacts serializados
+artifacts/
