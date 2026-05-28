@@ -3,6 +3,7 @@ from ml.preprocessing import (
 )
 from ml.config import load_model_config
 from ml.trainers.random_forest import RandomForestTrainer
+from ml.trainers.xgboost import XGBoostTrainer
 from sklearn.metrics import (
     accuracy_score,
     f1_score,
@@ -15,7 +16,7 @@ from sklearn.metrics import (
 def main():
     print("Hello from tf-mlops-ceia!")
 
-    config = load_model_config(r"ml\config\random_forest.yaml")
+    config = load_model_config(r"ml\config\xgboost.yaml")
 
     Xtr, Xte, ytr, yte = run_preprocessing(
         source=r"dataset\star_classification.csv",
@@ -24,7 +25,7 @@ def main():
 
     print(Xtr.shape, Xte.shape, ytr.shape, yte.shape)
 
-    model = RandomForestTrainer(config)
+    model = XGBoostTrainer(config)
     pipeline = model.build_pipeline()
     pipeline.fit(Xtr, ytr)
 
