@@ -13,6 +13,8 @@ from sklearn.metrics import (
     confusion_matrix,
 )
 
+from ml.evaluate import print_report
+
 def main():
     print("Hello from tf-mlops-ceia!")
 
@@ -29,14 +31,7 @@ def main():
     pipeline = model.build_pipeline()
     pipeline.fit(Xtr, ytr)
 
-    y_pred = pipeline.predict(Xte)
-
-    
-    print(f"accuracy:         {accuracy_score(yte, y_pred)}")
-    print(f"f1_macro:         {f1_score(yte, y_pred, average='macro')}")
-    print(f"f1_weighted:      {f1_score(yte, y_pred, average='weighted')}")
-    print(f"precision_macro:  {precision_score(yte, y_pred, average='macro')}")
-    print(f"recall_macro:     {recall_score(yte, y_pred, average='macro')}")
+    print_report(pipeline, Xte, yte)
 
 
 
