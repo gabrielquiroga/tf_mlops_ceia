@@ -1,14 +1,41 @@
 # Trabajo Final MLOps
 
-Introducción
+Trabajo en el que se aplican los conceptos aprendidos en la cátedra MLOps de la Carrera de Especialización en Inteligencia Artificial (FIUBA).
+MLOps refiere al conjunto de prácticas dedicadas a automatizar y optimizar el ciclo de vida de un proyecto de Machine Learning, asegurando un despliegue y mantenimiento eficiente del modelo.
 
-Indicar cómo levantar la app
 
-Instrucciones de deployment
+## Setup
 
-Features
+### Prerrequisitos
 
-Etcétera
+- Docker y Docker Compose
+- Python 3.12 o superior
+- uv package manager
+
+### Instalación
+
+1. Clonar el repositorio
+```
+git clone <url>
+cd tf_mlops_ceia
+```
+
+2. Configurar las variables de entorno
+```copy .env.example .env```
+
+3. Iniciar los servicios de Docker
+```docker-compose up -d```
+
+4. Instalar las dependencias del proyecto (uv)
+```uv sync```
+
+5. Ejecutar el proyecto
+```uv run python main.py```
+
+
+## MLflow
+
+## Servidor API
 
 ## Convención de commits
 Con el objetivo de mantener la historia limpia y trackeable, se definen algunas convenciones para redactar los commits de git. El commit base tiene la siguiente forma:
@@ -29,7 +56,8 @@ donde:
 - **\<description>** Es la descripción detallada del proyecto y debe explayarse en la misma. Se debe evitar el uso frases abreviadas y poco explícitas. Un usuario externo al proyecto debe ser capaz de comprender los cambios de manera general leyendo el commit.
 
 ## Cómo agregar un nuevo modelo para entrenar
-Por un lado, debe especificar la configuración de los hiperparámetros del modelo y los parámetros del entrenamiento en un archivo .yaml dentro de la carpeta `/ml/config/`, por ejemplo:
+
+Por un lado, debe especificarse la configuración de los hiperparámetros del modelo y los parámetros del entrenamiento en un archivo .yaml dentro de la carpeta `/ml/config/`, por ejemplo:
 ```yaml
 model:
   name: "stellar-classifier"
@@ -62,6 +90,8 @@ class RandomForestTrainer(BaseTrainer):
     def build_pipeline(self) -> Pipeline:
         return Pipeline([
             ("scaler", StandardScaler()),
-            ("classifer", RandomForestClassifier(**self.config.hyperparamenters)),
+            ("classifer", RandomForestClassifier(
+              **self.config.hyperparamenters
+            )),
         ])
 ```
