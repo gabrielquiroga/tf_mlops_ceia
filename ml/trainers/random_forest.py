@@ -13,5 +13,7 @@ class RandomForestTrainer(BaseTrainer):
     def build_pipeline(self) -> Pipeline:
         return Pipeline([
             ("scaler", StandardScaler()),
-            ("classifer", RandomForestClassifier(**self.config.hyperparamenters)),
+            ("classifer", RandomForestClassifier(
+                **self.config.hyperparameters
+            )),
         ])
