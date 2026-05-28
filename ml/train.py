@@ -66,7 +66,7 @@ def train(model_type: str, source: str) -> str:
 
         mlflow.sklearn.log_model(
             sk_model=pipeline,
-            artifact_name="model",
+            artifact_path="model",
             registered_model_name="stellar-classifier"
         )
 
