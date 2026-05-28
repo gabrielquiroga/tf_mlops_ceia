@@ -49,3 +49,7 @@ class MLSettings(BaseSettings):
         default="dataset\star_classification.csv",
         description="Ubicación del dataset."
     )
+
+def get_ml_settings() -> MLSettings:
+    return MLSettings()
+
