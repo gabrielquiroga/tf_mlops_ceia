@@ -21,19 +21,42 @@ cd tf_mlops_ceia
 ```
 
 2. Configurar las variables de entorno
-```copy .env.example .env```
+```
+copy .env.example .env
+# Editar y coonfigurar las variables que correspondan.
+```
 
 3. Iniciar los servicios de Docker
-```docker-compose up -d```
+```
+docker-compose up -d
+```
 
 4. Instalar las dependencias del proyecto (uv)
-```uv sync```
+```
+uv sync
+```
 
-5. Ejecutar el proyecto
-```uv run python main.py```
+## Development
 
+### Ejecutando la aplicación
 
-## MLflow
+Una vez que los servicios de docker estén levantados se puede acceder a las UI de MLflow y MinIO en:
+- MLflow → http://localhost:5000
+- MinIO → http://localhost:9000
+
+Para ejecutar el flujo completo de entrenamiento, evaluación y logueo a MLflow, usar el comando:
+```
+python -m ml.train <model_type> <source>
+```
+
+donde `<model_type>` debe ser uno de los *trainers* habilitados en `ml/trainers/` y `<source>` es la ubicación del dataset a usar.
+
+### Agregar dependencias
+
+Usar `uv`para agregar las dependencias consistentemente en el proyecto.
+```
+uv add <package>
+```
 
 ## Servidor API
 
