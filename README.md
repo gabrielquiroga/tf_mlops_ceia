@@ -3,6 +3,10 @@
 Trabajo en el que se aplican los conceptos aprendidos en la cátedra MLOps de la Carrera de Especialización en Inteligencia Artificial (FIUBA).
 MLOps refiere al conjunto de prácticas dedicadas a automatizar y optimizar el ciclo de vida de un proyecto de Machine Learning, asegurando un despliegue y mantenimiento eficiente del modelo.
 
+Integrantes:
+- Quiroga, Martin Gabriel (a2412)
+- García, Andrés Pablo (a2406)
+- Jauffroy, Mariano (a2407)
 
 ## Setup
 
