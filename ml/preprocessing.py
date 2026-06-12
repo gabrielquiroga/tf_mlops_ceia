@@ -93,6 +93,14 @@ def run_preprocessing(
     df = resolve_label_conflicts(df)
     return split_dataset(df, config)
 
+def preprocess_for_inference(df: pd.DataFrame, features: list[str]) -> pd.DataFrame:
+    """
+    Preprocesamiento para inferencia: solo aplica los pasos válidos sobre datos nuevos.
+    No incluye resolve_label_conflicts.
+    """
+    df = remove_outliers(df)
+    return df[features].copy()
+
 def _get_relevant_features(df: pd.DataFrame, features: list[str]) -> pd.DataFrame:
     """Filtra el DataFrame para quedarse solo con las columnas relevantes."""
     return df[features].copy()

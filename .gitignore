@@ -19,6 +19,7 @@ dataset/
 # MLflow local runs 
 mlruns/
 mlartifacts/
+mlflow.db
 
 # Artifacts serializados
 artifacts/
