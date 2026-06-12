@@ -50,6 +50,9 @@ def predict(input_df: pd.DataFrame) -> pd.Series:
 
 
 if __name__ == "__main__":
+    """
+    Para ejecutar una prueba de inferencia localmente.
+    > python -m ml.predict
+    """
     predict_df = pd.read_csv("dataset/test_sc.csv")
-
     print(predict(predict_df))
