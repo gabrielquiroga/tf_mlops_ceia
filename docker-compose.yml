@@ -1,14 +1,53 @@
-services:
-  # POSTGRES : guarda métricas y parámetros
+# &airflow-common es un anchor YAML, define el bloque una sola vez y los servicios
+# de airflow lo heredan con <<: *airflow-common, para no repetir.
+x-airflow-common: &airflow-common
+  build: './dockerfiles/airflow'
+  image: ${AIRFLOW_IMAGE_NAME:-extending_airflow:latest}
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+    AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${PG_USER}:${PG_PASSWORD}@postgres:5432/${PG_DATABASE_AIRFLOW:-airflow_db}
+    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${PG_USER:-mlflow}:${PG_PASSWORD:-mlflow}@postgres:5432/airflow_db
+    AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
+    AIRFLOW__CELERY__WORKER_CONCURRENCY: '2'
+    AIRFLOW__CORE__FERNET_KEY: ''
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'True'
+    AIRFLOW__SECRETS__BACKEND: airflow.secrets.local_filesystem.LocalFilesystemBackend
+    AIRFLOW__SECRETS__BACKEND_KWARGS: '{"variables_file_path": "/opt/secrets/variables.yaml", "connections_file_path": "/opt/secrets/connections.yaml"}'
+    AWS_ACCESS_KEY_ID: ${MINIO_ACCESS_KEY:-minioadmin}
+    AWS_SECRET_ACCESS_KEY: ${MINIO_SECRET_ACCESS_KEY:-minioadmin}
+    AWS_ENDPOINT_URL_S3: http://minio:9000
+    MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+  volumes:
+    - ${AIRFLOW_PROJ_DIR:-./airflow}/dags:/opt/airflow/dags
+    - ${AIRFLOW_PROJ_DIR:-./airflow}/logs:/opt/airflow/logs
+    - ${AIRFLOW_PROJ_DIR:-./airflow}/config:/opt/airflow/config
+    - ${AIRFLOW_PROJ_DIR:-./airflow}/plugins:/opt/airflow/plugins
+    - ${AIRFLOW_PROJ_DIR:-./airflow}/secrets:/opt/secrets
+  user: "${AIRFLOW_UID:-50000}:0"
+  depends_on: &airflow-common-depends-on
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
 
+services:
+
+  # POSTGRES : guarda métricas y parámetros
   postgres:
-    image: postgres:15
+    build: './dockerfiles/postgres' # Cambio de image a build
+    image: postgres_mlops # Nombre de la imagen buildeada
     container_name: mlops_postgres
     restart: always
     environment:
       POSTGRES_USER: ${PG_USER:-mlflow}
       POSTGRES_PASSWORD: ${PG_PASSWORD:-mlflow}
-      POSTGRES_DB: ${PG_DATABASE:-mlflow}
+      POSTGRES_DB: postgres # DB default (hace de placeholder)
+      PG_DATABASE_MLFLOW: ${PG_DATABASE_MLFLOW:-mlflow_db}
+      PG_DATABASE_AIRFLOW: ${PG_DATABASE_AIRFLOW:-airflow_db}
     volumes:
       - postgres_data:/var/lib/postgresql/data # persiste la DB aunque se apageu Docker
     ports:
@@ -19,8 +58,21 @@ services:
       timeout: 20s
       retries: 3
 
-  # MINIO : guarda modelos y artefactos
+  # REDIS: motor de cola de mensajes entre workers y scheduler
+  # (Valkey es un fork open-source, 100% compatible)
+  redis:
+    image: valkey/valkey:8.1-bookworm
+    restart: always
+    expose:
+      - 6379
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 30s
+      retries: 50
+      start_period: 30s
 
+  # MINIO : guarda modelos y artefactos
   minio:
     image: minio/minio:latest
     container_name: mlops_minio
@@ -56,7 +108,6 @@ services:
       "
 
   # MLFLOW SERVER: el servidor
-
   mlflow:
     image: ghcr.io/mlflow/mlflow
     container_name: mlops_mlflow
@@ -73,7 +124,7 @@ services:
       MLFLOW_SERVER_DISBALE_SECURITY_MIDDLEWARE: "true"
     command: >
       mlflow server
-      --backend-store-uri postgresql://${PG_USER:-mlflow}:${PG_PASSWORD:-mlflow}@postgres:${PG_PORT:-5432}/${PG_DATABASE:-mlflow}
+      --backend-store-uri postgresql://${PG_USER}:${PG_PASSWORD}@postgres:5432/${PG_DATABASE_MLFLOW:-mlflow_db}
       --default-artifact-root s3://${MLFLOW_BUCKET_NAME:-mlflow-artifacts}
       --host 0.0.0.0
       --port 5000
@@ -86,8 +137,129 @@ services:
       timeout: 10s
       retries: 3
 
-# VOLÚMENES: carpetas persistentes en PC
+  # AIRFLOW INIT: Corre una sola vez (como root): crea las carpetas
+  # necesarias, ejecuta las migracions de la DB, y crea el usuario
+  # Admin para la UI.
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        mkdir -v -p /opt/airflow/{logs,dags,plugins,config}
+        chown -R "${AIRFLOW_UID:-50000}:0" /opt/airflow/
+        /entrypoint airflow db migrate
+        airflow users create \
+          --username ${_AIRFLOW_WWW_USER_USERNAME:-airflow} \
+          --password ${_AIRFLOW_WWW_USER_PASSWORD:-airflow} \
+          --firstname Airflow \
+          --lastname Admin \
+          --role Admin \
+          --email airflow@example.com
+    environment:    
+      <<: *airflow-common-env
+      _AIRFLOW_DB_MIGRATE: 'true'
+      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
+      _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
+    user: "0:0"
 
+  # AIRFLOW APISERVER: Sirve la UI en localhost:8080, y expone la API
+  # REST de Airflow.
+  airflow-apiserver:
+    <<: *airflow-common
+    container_name: airflow-apiserver
+    command: api-server --workers 1
+    restart: always
+    ports:
+      - "${AIRFLOW_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/version"]
+      interval: 60s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  # AIRFLOW SCHEDULER: lee los DAGs, evalúa las tareas que deben correr
+  # según el schedule y las encola en Redis para los workers.
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  # AIRFLOW DAG PROCESSOR: lee y parsea los .py de la carpeta dags/. Va
+  # separado del scheduler tal que si un DAG tiene un error de Python, 
+  # no tira el scheduler entero.
+  airflow-dag-processor:
+    <<: *airflow-common
+    command: dag-processor
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type DagProcessorJob --hostname "$${HOSTNAME}"']
+      interval: 60s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  # AIRFLOW WORKER: lee las tareas encoladas en Redis y las ejecuta.
+  airflow-worker:
+    <<: *airflow-common
+    command: celery worker -c 2 # hasta 2 tareas en paralelo por worker
+    restart: always
+    environment:
+      <<: *airflow-common-env
+      DUMB_INIT_SETSID: "0" # evita procesos zombie al hacer docker compose down
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - 'celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}"'
+      interval: 60s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-apiserver:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+
+  # AIRFLOW TRIGGERER: para DAGs asíncronos
+  airflow-triggerer:
+    <<: *airflow-common
+    command: triggerer
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"']
+      interval: 60s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+  
+
+# VOLÚMENES: carpetas persistentes en PC
 volumes:
   postgres_data: # donde se guarda la DB
   minio_data: # donde se guardan los modelos
