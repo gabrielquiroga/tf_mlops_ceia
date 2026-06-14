@@ -6,7 +6,8 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
     confusion_matrix,
-    classification_report
+    classification_report,
+    ConfusionMatrixDisplay
 )
 
 
@@ -41,7 +42,7 @@ def print_report(
     pipeline: Pipeline,
     X_test: pd.DataFrame,
     y_test: pd.Series,
-) -> None:
+):
     """
     Imprime por consola un reporte de métricas con la siguiente estructura:
 
@@ -74,3 +75,7 @@ def print_report(
     cm_df = pd.DataFrame(cm, index=labels, columns=labels)
 
     print(cm_df)
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
+    disp.plot()
+
+    return disp

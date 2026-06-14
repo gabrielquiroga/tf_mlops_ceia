@@ -51,7 +51,7 @@ def train(model_type: str, source: str) -> str:
     # 4. Evaluar
     print(f"[3/4] Evaluando...")
     metrics = compute_metrics(pipeline, X_test, y_test)
-    print_report(pipeline, X_test, y_test)
+    cm = print_report(pipeline, X_test, y_test)
 
     # 5. Registrar en el MLflow
     print("[4/4] Logueando a MLflow...")
@@ -66,6 +66,8 @@ def train(model_type: str, source: str) -> str:
         mlflow.log_params(config.hyperparameters)
 
         mlflow.log_metrics(metrics)
+
+        mlflow.log_figure(cm.figure_, f"CM_{model_type}.png")
 
         mlflow.sklearn.log_model(
             sk_model=pipeline,
