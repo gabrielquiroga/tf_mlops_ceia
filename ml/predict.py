@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 load_dotenv()
 import ast
+import os
 
 import pandas as pd
 import mlflow.pyfunc
@@ -8,7 +9,7 @@ from mlflow import MlflowClient
 
 from ml.preprocessing import preprocess_for_inference
 
-TRACKING_URI = "http://localhost:5000"
+TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
 REGISTERED_NAME="stellar-classifier"
 
 def load_champion() -> mlflow.pyfunc.PyFuncModel:
@@ -40,6 +41,25 @@ def get_champion_features() -> list[str]:
     version = client.get_model_version_by_alias(REGISTERED_NAME, "champion")
     run = client.get_run(version.run_id)
     return ast.literal_eval(run.data.params["features"])
+
+def get_champion_metric(metric_name: str) -> str:
+    """
+    Recupera el valor de una métrica específica del modelo champion.
+    Devuelve un dict vacío si no hay champion.
+    """
+    try:
+        client = MlflowClient(tracking_uri=TRACKING_URI)
+        version_info = client.get_model_version_by_alias(REGISTERED_NAME, "champion")
+        run = client.get_run(version_info.run_id)
+        metric_value = run.data.metrics.get(metric_name)
+        return {
+            "version": version_info.version,
+            "run_id": version_info.run_id,
+            metric_name: metric_value,
+        }
+    except Exception:
+        return {}
+
 
 def predict(input_df: pd.DataFrame) -> pd.Series:
     """

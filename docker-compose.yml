@@ -23,12 +23,16 @@ x-airflow-common: &airflow-common
     AWS_SECRET_ACCESS_KEY: ${MINIO_SECRET_ACCESS_KEY:-minioadmin}
     AWS_ENDPOINT_URL_S3: http://minio:9000
     MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+    MLFLOW_TRACKING_URI: http://mlflow:5000
+    PYTHONPATH: /opt/airflow
   volumes:
     - ${AIRFLOW_PROJ_DIR:-./airflow}/dags:/opt/airflow/dags
     - ${AIRFLOW_PROJ_DIR:-./airflow}/logs:/opt/airflow/logs
     - ${AIRFLOW_PROJ_DIR:-./airflow}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-./airflow}/plugins:/opt/airflow/plugins
     - ${AIRFLOW_PROJ_DIR:-./airflow}/secrets:/opt/secrets
+    - ./ml:/opt/airflow/ml # Volumen para que los workers accedan al paquete de ML
+    - ./dataset:/opt/airflow/dataset # VOlumne para que los workers accedan al dataset
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on: &airflow-common-depends-on
     postgres:
@@ -55,7 +59,7 @@ services:
     ports:
       - "${PG_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD", "pg_isready", "-p", "5432", "-U", "${PG_USER:-mlflow}"]
+      test: ["CMD", "pg_isready", "-p", "5432", "-U", "${PG_USER:-mlflow}", "-d", "postgres"]
       interval: 60s
       timeout: 20s
       retries: 3
@@ -123,7 +127,12 @@ services:
       MLFLOW_S3_ENDPOINT_URL: http://minio:9000
       AWS_ACCESS_KEY_ID: ${MINIO_ACCESS_KEY:-minioadmin}
       AWS_SECRET_ACCESS_KEY: ${MINIO_SECRET_ACCESS_KEY:-minioadmin}
-      MLFLOW_SERVER_DISBALE_SECURITY_MIDDLEWARE: "true"
+      # Si no se deshabilita esto, aparece un error 403 debido a una medida de
+      # seguridad implementada recientemente en MLflow para prevenir ataques de
+      # DNS Rebinding. Si el cliente intenta acceder usando una URL con un hostname
+      # que no es seguro por defecto (como http://mlflow:5000), el servidor lo
+      # bloquea.
+      MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE: "true"
     command: >
       mlflow server
       --backend-store-uri postgresql://${PG_USER}:${PG_PASSWORD}@postgres:5432/${PG_DATABASE_MLFLOW:-mlflow_db}

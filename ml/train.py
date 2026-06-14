@@ -21,7 +21,7 @@ TRAINERS = {
 
 mlsettings = get_ml_settings()
 
-def train(model_type: str, source: str) -> str:
+def train(model_type: str, source: str) -> dict:
     """
     Entrena el modelo, loguea todo a MLflow y registra el pipeline.
     
@@ -34,7 +34,8 @@ def train(model_type: str, source: str) -> str:
     :rtype: str
     """
     # 1. Cargar configuración de modelo
-    config_path = Path(f"ml/config/{model_type}.yaml")
+    # config_path = Path(f"ml/config/{model_type}.yaml")
+    config_path = Path(__file__).parent / "config" / f"{model_type}.yaml"
     config = load_model_config(config_path)
 
     # 2. Cargar datos y preprocesar para obtener sets de entrenamiento y test
@@ -69,16 +70,21 @@ def train(model_type: str, source: str) -> str:
 
         mlflow.log_figure(cm.figure_, f"CM_{model_type}.png")
 
-        mlflow.sklearn.log_model(
+        model_info = mlflow.sklearn.log_model(
             sk_model=pipeline,
-            artifact_path="model",
+            name="model",
             registered_model_name="stellar-classifier"
         )
 
         run_id = run.info.run_id
         print(f"\n Run logueado: {run_id}")
     
-    return run_id
+    return {
+        "run_id": run_id,
+        "model_type": model_type,
+        "model_version": model_info.registered_model_version,
+        "metrics": metrics,
+    }
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:

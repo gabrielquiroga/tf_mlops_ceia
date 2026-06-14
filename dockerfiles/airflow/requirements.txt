@@ -4,3 +4,6 @@ scikit-learn
 xgboost
 pandas
 numpy
+pydantic-settings
+python-dotenv
+PyYAML
