@@ -50,6 +50,22 @@ class MLSettings(BaseSettings):
         description="Ubicación del dataset."
     )
 
+    # Configuración para S3/MinIO
+    aws_endpoint_url_s3: str = Field(
+        default="http://minio:9000",
+        description="Endpoint de S3 (MinIO)"
+    )
+
+    aws_access_key_id: str = Field(
+        default="minioadmin",
+        description="Access Key para S3/MinIO"
+    )
+
+    aws_secret_access_key: str = Field(
+        default="minioadmin",
+        description="Secret Key para S3/MinIO"
+    )
+
 def get_ml_settings() -> MLSettings:
     return MLSettings()
 

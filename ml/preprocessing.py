@@ -1,6 +1,7 @@
 from typing import Optional
-
 import pandas as pd
+import s3fs
+
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.model_selection import GroupShuffleSplit
@@ -12,14 +13,23 @@ from ml.schema import (
     OUTLIER_COLS,
 )
 
-from ml.config import ModelConfig
+from ml.config import ModelConfig, get_ml_settings
+
+ml_settings = get_ml_settings()
 
 def load_data(source: str) -> pd.DataFrame:
     """Acepta URL o path local"""
-    if not source:
-        print("No data source specified, using default URL")
-        # source = settings.data_source_url
-    return pd.read_csv(source)
+    
+    if source.startswith("s3://"):
+        fs = s3fs.S3FileSystem(
+            client_kwargs={'endpoint_url': ml_settings.aws_endpoint_url_s3},
+            key=ml_settings.aws_access_key_id,
+            secret=ml_settings.aws_secret_access_key
+        )
+        with fs.open(source, 'rb') as f:
+            return pd.read_csv(f)
+    else:
+        return pd.read_csv(source)
 
 def remove_outliers(df: pd.DataFrame) -> pd.DataFrame: 
     """Solo elimina outliers que son claro error, saturado a -9999."""

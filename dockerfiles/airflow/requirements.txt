@@ -7,3 +7,5 @@ numpy
 pydantic-settings
 python-dotenv
 PyYAML
+s3fs
+requests

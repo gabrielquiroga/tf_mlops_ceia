@@ -73,7 +73,12 @@ def train(model_type: str, source: str) -> dict:
         model_info = mlflow.sklearn.log_model(
             sk_model=pipeline,
             name="model",
-            registered_model_name="stellar-classifier"
+            registered_model_name="stellar-classifier",
+            skops_trusted_types=[
+                "ml.trainers.xgboost.LabelEncodedXGBClassifier",
+                "xgboost.core.Booster",
+                "xgboost.sklearn.XGBClassifier",
+            ],
         )
 
         run_id = run.info.run_id
