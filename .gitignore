@@ -14,7 +14,7 @@ wheels/
 uv.lock
 
 # Dataset
-dataset/
+dataset/test_sc.csv
 
 # MLflow local runs 
 mlruns/
