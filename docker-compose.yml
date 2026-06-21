@@ -356,6 +356,30 @@ services:
       airflow-init:
         condition: service_completed_successfully
   
+  frontend:
+    build:
+      context: .
+      dockerfile: dockerfiles/frontend/Dockerfile
+    image: ${FRONTEND_IMAGE_NAME:-stellar_frontend:latest}
+    container_name: mlops_frontend
+    restart: always
+    environment:
+      # URL de la API
+      API_BASE_URL: ${API_BASE_URL:-http://api:8000}
+    volumes:
+      - ./frontend/app.py:/app/app.py
+    ports:
+      - "${FRONTEND_PORT:-8501}:8501"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8501/_stcore/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    # Descomentar cuando estg la API
+    # depends_on:
+    #   api:
+    #     condition: service_healthy
 
 # VOLÚMENES: carpetas persistentes en PC
 volumes:
