@@ -8,4 +8,5 @@ python-dotenv
 PyYAML
 fastapi
 uvicorn
+s3fs
  

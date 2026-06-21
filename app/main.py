@@ -4,6 +4,7 @@ load_dotenv()
 import pandas as pd
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from typing import List, Optional
 
 from ml.predict import predict
 
@@ -19,12 +20,17 @@ class StarInput(BaseModel):
     i: float
     z: float
     redshift: float
-    run_ID: int
-    cam_col: int
-    field_ID: int
-    plate: int
-    MJD: int
-    fiber_ID: int
+
+    # Opcionales (con valores por defecto None)
+    run_ID: Optional[int] = None
+    cam_col: Optional[int] = None
+    field_ID: Optional[int] = None
+    plate: Optional[int] = None
+    MJD: Optional[int] = None
+    fiber_ID: Optional[int] = None
+    obj_ID: Optional[float] = None
+    rerun_ID: Optional[int] = None
+    spec_obj_ID: Optional[float] = None
 
 
 # --- App ---
@@ -42,16 +48,16 @@ def health():
 
 
 @app.post("/predict")
-def predict_class(star: StarInput):
+def predict_class(stars: List[StarInput]):
     """
     Recibe los datos de un objeto astronómico y devuelve su clasificación.
     La clasificación puede ser: GALAXY, STAR o QSO.
     """
     try:
-        # Convertimos el objeto recibido a un DataFrame de una sola fila,
-        # que es el formato que espera la función predict() de ml/predict.py
-        input_df = pd.DataFrame([star.model_dump()])
-        result = predict(input_df)
-        return {"prediction": result[0]}
+        # Convertimos la lista de objetos a DataFrame
+        input_df = pd.DataFrame([star.model_dump() for star in stars])
+        results = predict(input_df)
+        # Retornamos lista de predicciones
+        return [{"prediction": pred} for pred in results]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
