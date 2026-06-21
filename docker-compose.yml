@@ -1,7 +1,7 @@
 # &airflow-common es un anchor YAML, define el bloque una sola vez y los servicios
 # de airflow lo heredan con <<: *airflow-common, para no repetir.
 x-airflow-common: &airflow-common
-  build: './dockerfiles/airflow'
+  build: "./dockerfiles/airflow"
   image: ${AIRFLOW_IMAGE_NAME:-extending_airflow:latest}
   environment: &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
@@ -9,14 +9,14 @@ x-airflow-common: &airflow-common
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${PG_USER}:${PG_PASSWORD}@postgres:5432/${PG_DATABASE_AIRFLOW:-airflow_db}
     AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${PG_USER:-mlflow}:${PG_PASSWORD:-mlflow}@postgres:5432/airflow_db
     AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
-    AIRFLOW__CELERY__WORKER_CONCURRENCY: '2'
-    AIRFLOW__CORE__FERNET_KEY: ''
+    AIRFLOW__CELERY__WORKER_CONCURRENCY: "2"
+    AIRFLOW__CORE__FERNET_KEY: ""
     AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET}
-    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
-    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: 'http://airflow-apiserver:8080/execution/'
-    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
-    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'True'
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: "http://airflow-apiserver:8080/execution/"
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "True"
     AIRFLOW__SECRETS__BACKEND: airflow.secrets.local_filesystem.LocalFilesystemBackend
     AIRFLOW__SECRETS__BACKEND_KWARGS: '{"variables_file_path": "/opt/secrets/variables.yaml", "connections_file_path": "/opt/secrets/connections.yaml"}'
     AWS_ACCESS_KEY_ID: ${MINIO_ACCESS_KEY:-minioadmin}
@@ -41,10 +41,9 @@ x-airflow-common: &airflow-common
       condition: service_healthy
 
 services:
-
   # POSTGRES : guarda métricas y parámetros
   postgres:
-    build: './dockerfiles/postgres' # Cambio de image a build
+    build: "./dockerfiles/postgres" # Cambio de image a build
     image: postgres_mlops # Nombre de la imagen buildeada
     container_name: mlops_postgres
     restart: always
@@ -59,7 +58,17 @@ services:
     ports:
       - "${PG_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD", "pg_isready", "-p", "5432", "-U", "${PG_USER:-mlflow}", "-d", "postgres"]
+      test:
+        [
+          "CMD",
+          "pg_isready",
+          "-p",
+          "5432",
+          "-U",
+          "${PG_USER:-mlflow}",
+          "-d",
+          "postgres",
+        ]
       interval: 60s
       timeout: 20s
       retries: 3
@@ -253,13 +262,13 @@ services:
           --lastname Admin \
           --role Admin \
           --email airflow@example.com
-    environment:    
+    environment:
       <<: *airflow-common-env
-      _AIRFLOW_DB_MIGRATE: 'true'
-      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _AIRFLOW_DB_MIGRATE: "true"
+      _AIRFLOW_WWW_USER_CREATE: "true"
       _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
       _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
-      _PIP_ADDITIONAL_REQUIREMENTS: ''
+      _PIP_ADDITIONAL_REQUIREMENTS: ""
     user: "0:0"
 
   # AIRFLOW APISERVER: Sirve la UI en localhost:8080, y expone la API
@@ -300,14 +309,18 @@ services:
         condition: service_completed_successfully
 
   # AIRFLOW DAG PROCESSOR: lee y parsea los .py de la carpeta dags/. Va
-  # separado del scheduler tal que si un DAG tiene un error de Python, 
+  # separado del scheduler tal que si un DAG tiene un error de Python,
   # no tira el scheduler entero.
   airflow-dag-processor:
     <<: *airflow-common
     command: dag-processor
     restart: always
     healthcheck:
-      test: ["CMD-SHELL", 'airflow jobs check --job-type DagProcessorJob --hostname "$${HOSTNAME}"']
+      test:
+        [
+          "CMD-SHELL",
+          'airflow jobs check --job-type DagProcessorJob --hostname "$${HOSTNAME}"',
+        ]
       interval: 60s
       timeout: 10s
       retries: 5
@@ -346,7 +359,11 @@ services:
     command: triggerer
     restart: always
     healthcheck:
-      test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"']
+      test:
+        [
+          "CMD-SHELL",
+          'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"',
+        ]
       interval: 60s
       timeout: 10s
       retries: 5
@@ -355,7 +372,6 @@ services:
       <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
-  
   frontend:
     build:
       context: .
@@ -364,7 +380,6 @@ services:
     container_name: mlops_frontend
     restart: always
     environment:
-      # URL de la API
       API_BASE_URL: ${API_BASE_URL:-http://api:8000}
     volumes:
       - ./frontend/app.py:/app/app.py
@@ -376,10 +391,34 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
-    # Descomentar cuando estg la API
-    # depends_on:
-    #   api:
-    #     condition: service_healthy
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # API DE SERVING: expone el modelo champion para hacer inferencias
+  api:
+    build:
+      context: .
+      dockerfile: ./dockerfiles/api/Dockerfile
+    container_name: mlops_api
+    restart: always
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      AWS_ACCESS_KEY_ID: ${MINIO_ACCESS_KEY:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_SECRET_ACCESS_KEY:-minioadmin}
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      mlflow:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
 
 # VOLÚMENES: carpetas persistentes en PC
 volumes:

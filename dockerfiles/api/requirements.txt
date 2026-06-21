@@ -1,0 +1,11 @@
+mlflow
+boto3
+scikit-learn
+pandas
+numpy
+pydantic-settings
+python-dotenv
+PyYAML
+fastapi
+uvicorn
+ 
