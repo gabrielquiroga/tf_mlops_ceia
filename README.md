@@ -75,6 +75,28 @@ tf_mlops_ceia/
    uv sync
    ```
 
+5. **Ejecutar los DAGs en Airflow manualmente si se desea.**
+   Es necesario para tener un primer champion luego de levantar el proyecto.
+
+6. **Hacer una solicitud a la API**
+   - Puede ser via UI en [http://localhost:8501](http://localhost:8501)
+   - Puede ser via Postman o Curl
+   ```bash
+   curl -X POST http://localhost:8000/predict \
+   -H "Content-Type: application/json" \
+   -d '[{
+      "alpha": 135.689,
+      "delta": 32.494,
+      "u": 23.87882,
+      "g": 22.27530,
+      "r": 20.39501,
+      "i": 19.16573,
+      "z": 18.79371,
+      "redshift": 0.6347
+   }]'
+   ```
+
+
 ## 🌐 Acceso a las Interfaces de los Servicios
 
 Una vez que los contenedores estén corriendo de forma saludable (healthy), se puede acceder a las siguientes interfaces web directamente desde el navegador:
