@@ -107,6 +107,75 @@ Una vez que los contenedores estén corriendo de forma saludable (healthy), se p
 - **MLflow Tracking**: [http://localhost:5000](http://localhost:5000) - *Visualización de experimentos y métricas.*
 - **MinIO Console**: [http://localhost:9001](http://localhost:9001) - *Explorador de buckets (datasets y artefactos).*
 
+## ▶️ Orden de arranque y qué esperar
+
+El stack tiene dependencias encadenadas. Docker Compose las gestiona automáticamente, pero es útil saber qué está pasando:
+
+1. **`postgres`** arranca primero e inicializa las bases de datos `mlflow_db` y `airflow_db`. El healthcheck confirma que ambas existen antes de avanzar. Puede tardar hasta 30–60 segundos en el primer arranque.
+
+2. **`redis`** y **`minio`** arrancan en paralelo con postgres. MinIO necesita estar healthy antes de que `minio-init` copie el dataset al bucket.
+
+3. **`mlflow`** arranca una vez que postgres y minio están healthy. Corre las migraciones de la DB automáticamente.
+
+4. **`airflow-init`** arranca una vez que postgres está healthy. Corre las migraciones de Airflow y crea el usuario admin. Solo se ejecuta una vez.
+
+5. **El resto de los servicios de Airflow** (scheduler, worker, apiserver, etc.) arrancan una vez que `airflow-init` terminó exitosamente.
+
+6. **`api`** y **`frontend`** son los últimos en estar listos, ya que dependen de que mlflow esté healthy para poder cargar el modelo campeón.
+
+Para monitorear el estado en tiempo real:
+```bash
+docker compose ps
+```
+Todos los servicios deben mostrar `healthy` antes de usar la aplicación. El primer arranque completo tarda aproximadamente **3–5 minutos**.
+
+> **Nota:** Si es la primera vez que se levanta el proyecto (o limpiaste los volúmenes), no va a haber ningún modelo registrado en MLflow. Es necesario ejecutar los DAGs de Airflow manualmente para entrenar y registrar el primer modelo campeón antes de poder usar la API y el frontend.
+
+## 🔧 Troubleshooting
+
+### Los servicios de Airflow o MLflow fallan con `database does not exist`
+Esto ocurre cuando el volumen de postgres existe pero está corrupto o incompleto (por ejemplo, si el contenedor crasheó durante la inicialización). El script `init-db.sh` solo corre cuando el volumen está vacío.
+
+```bash
+docker compose down -v
+docker volume rm tf_mlops_ceia_postgres_data   # nombre puede variar
+docker compose up --build
+```
+
+### Un servicio queda en `unhealthy` o no termina de arrancar
+Revisá los logs del servicio específico:
+```bash
+docker compose logs <nombre-del-servicio> --tail=50
+```
+Servicios comunes a verificar: `mlops_postgres`, `mlops_mlflow`, `airflow-init`.
+
+### `airflow-init` falla o se reinicia en loop
+Generalmente indica que postgres no estaba listo a tiempo o que hubo un error en las migraciones. Revisá:
+```bash
+docker compose logs airflow-init
+docker compose logs mlops_postgres --tail=30
+```
+
+### La API responde `503` o `No champion model found`
+Significa que no hay ningún modelo registrado en MLflow con stage `Production`. Hay que ejecutar los DAGs en orden:
+1. Primero el DAG de ingesta/actualización del dataset.
+2. Luego el DAG de entrenamiento.
+
+Una vez que el entrenamiento termina, MLflow registra el mejor modelo como campeón automáticamente.
+
+### El frontend no carga o muestra error de conexión
+Verificá que el servicio `api` esté healthy antes que el frontend:
+```bash
+docker compose ps api
+```
+Si no lo está, revisá sus logs. El frontend depende estrictamente de que la API esté disponible.
+
+### Limpiar todo y empezar desde cero
+```bash
+docker compose down -v --remove-orphans
+docker compose up --build
+```
+
 ## 👨‍💻 Development
 
 ### Ejecutando la aplicación de entrenamiento localmente
